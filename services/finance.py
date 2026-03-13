@@ -1,35 +1,42 @@
 import requests
+
 from config import TIMEOUT
 
+PRIVATBANK_URL = "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5"
+NBU_URL = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json"
 
-def get_privatbank_usd() -> str:
-    url = "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5"
-    response = requests.get(url, timeout=TIMEOUT)
+
+def get_privatbank_usd(session: requests.Session) -> str:
+    response = session.get(PRIVATBANK_URL, timeout=TIMEOUT)
     response.raise_for_status()
 
     for item in response.json():
-        if item["ccy"] == "USD":
+        if item.get("ccy") == "USD":
             return f"{float(item['buy']):.2f}"
+
     raise ValueError("USD not found in PrivatBank response")
 
 
-def get_nbu_usd() -> str:
-    url = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json"
-    response = requests.get(url, timeout=TIMEOUT)
+def get_nbu_usd(session: requests.Session) -> str:
+    response = session.get(NBU_URL, timeout=TIMEOUT)
     response.raise_for_status()
 
-    rate = response.json()[0]["rate"]
+    data = response.json()
+    if not data:
+        raise ValueError("Empty NBU response")
+
+    rate = data[0]["rate"]
     return f"{float(rate):.2f}"
 
 
-def get_usd_rate() -> str:
+def get_usd_rate(session: requests.Session) -> str:
     try:
-        return get_privatbank_usd()
-    except Exception as e:
-        print(f"[Error PrivatBank]: {e}. Trying NBU...")
+        return get_privatbank_usd(session)
+    except Exception as error:
+        print(f"[Error PrivatBank]: {error}. Trying NBU...")
 
-        try:
-            return get_nbu_usd()
-        except Exception as fallback_e:
-            print(f"[Error NBU]: {fallback_e}. No more sources available.")
-            return "N/A"
+    try:
+        return get_nbu_usd(session)
+    except Exception as error:
+        print(f"[Error NBU]: {error}. No more sources available.")
+        return "N/A"
