@@ -1,5 +1,4 @@
 import requests
-
 from config import LATITUDE, LONGITUDE, CITY, TIMEOUT
 
 OPEN_METEO_URL = (
@@ -36,10 +35,9 @@ def get_open_meteo_weather(session: requests.Session) -> str:
     current = response.json()["current_weather"]
     temp = float(current["temperature"])
     code = int(current["weathercode"])
-
     is_day = int(current.get("is_day", 1))
 
-    return f"{format_temperature(temp)} {get_weather_emoji(code, is_day)}"
+    return f"{CITY}\n{format_temperature(temp)}{get_weather_emoji(code, is_day)}"
 
 
 def get_wttr_weather(session: requests.Session) -> str:
@@ -47,7 +45,7 @@ def get_wttr_weather(session: requests.Session) -> str:
     response.raise_for_status()
 
     temp = float(response.json()["current_condition"][0]["temp_C"])
-    return f"{format_temperature(temp)} ☁️"
+    return f"{CITY}\n{format_temperature(temp)}☁️"
 
 
 def get_real_weather(session: requests.Session) -> str:
@@ -60,4 +58,4 @@ def get_real_weather(session: requests.Session) -> str:
         return get_wttr_weather(session)
     except Exception as error:
         print(f"[Error wttr.in]: {error}. No more sources available.")
-        return "N/A"
+        return f"{CITY}\nN/A"

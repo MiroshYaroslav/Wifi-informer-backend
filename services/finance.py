@@ -6,37 +6,35 @@ PRIVATBANK_URL = "https://api.privatbank.ua/p24api/pubinfo?exchange&coursid=5"
 NBU_URL = "https://bank.gov.ua/NBUStatService/v1/statdirectory/exchange?valcode=USD&json"
 
 
-def get_privatbank_usd(session: requests.Session) -> str:
+def get_privatbank_rates(session: requests.Session) -> tuple[str, str]:
     response = session.get(PRIVATBANK_URL, timeout=TIMEOUT)
     response.raise_for_status()
-
+    usd, eur = "N/A", "N/A"
     for item in response.json():
         if item.get("ccy") == "USD":
-            return f"{float(item['buy']):.2f}"
+            usd = f"{float(item['buy']):.2f}"
+        elif item.get("ccy") == "EUR":
+            eur = f"{float(item['buy']):.2f}"
+    return usd, eur
 
-    raise ValueError("USD not found in PrivatBank response")
-
-
-def get_nbu_usd(session: requests.Session) -> str:
+def get_nbu_rates(session: requests.Session) -> tuple[str, str]:
     response = session.get(NBU_URL, timeout=TIMEOUT)
     response.raise_for_status()
+    usd, eur = "N/A", "N/A"
+    for item in response.json():
+        if item.get("cc") == "USD":
+            usd = f"{float(item['rate']):.2f}"
+        elif item.get("cc") == "EUR":
+            eur = f"{float(item['rate']):.2f}"
+    return usd, eur
 
-    data = response.json()
-    if not data:
-        raise ValueError("Empty NBU response")
-
-    rate = data[0]["rate"]
-    return f"{float(rate):.2f}"
-
-
-def get_usd_rate(session: requests.Session) -> str:
+def get_exchange_rates(session: requests.Session) -> tuple[str, str]:
     try:
-        return get_privatbank_usd(session)
+        return get_privatbank_rates(session)
     except Exception as error:
         print(f"[Error PrivatBank]: {error}. Trying NBU...")
-
     try:
-        return get_nbu_usd(session)
+        return get_nbu_rates(session)
     except Exception as error:
-        print(f"[Error NBU]: {error}. No more sources available.")
-        return "N/A"
+        print(f"[Error NBU]: {error}. No sources.")
+        return "N/A", "N/A"
