@@ -15,13 +15,22 @@ app = FastAPI(title="Smart Display Backend")
 MQTT_BROKER = "mosquitto"
 MQTT_PORT = 1883
 MQTT_TOPIC_STATE = "smart/dashboard/state"
+MQTT_TOPIC_TRIGGER = "smart/ha/trigger"
 
 mqtt_client = mqtt.Client()
 
-def on_connect(_client, _userdata, _flags, rc):
+def on_connect(client, userdata, flags, rc):
     print(f"[MQTT] Connected with result code {rc}")
+    client.subscribe(MQTT_TOPIC_TRIGGER)
+
+def on_message(client, userdata, msg):
+    if msg.topic == MQTT_TOPIC_TRIGGER:
+        print("[MQTT] HA state changed! Broadcasting new state...")
+        new_state = get_full_dashboard_state()
+        broadcast_data(new_state)
 
 mqtt_client.on_connect = on_connect
+mqtt_client.on_message = on_message
 
 try:
     mqtt_client.connect(MQTT_BROKER, MQTT_PORT, 60)
@@ -56,7 +65,7 @@ def broadcast_data(data: DashboardResponse):
     try:
         payload = data.model_dump_json()
         mqtt_client.publish(MQTT_TOPIC_STATE, payload, retain=True)
-        print("[MQTT] Broadcast sent")
+        print("[MQTT] Broadcast sent to ESP32")
     except Exception as e:
         print(f"[MQTT] Publish error: {e}")
 
@@ -101,11 +110,7 @@ def toggle_smarthome_device(device: str):
         return {"error": "Unknown device"}
 
     toggle_switch(entity)
-
-    new_state = get_full_dashboard_state()
-    broadcast_data(new_state)
-
-    return {"status": "ok", "state": new_state.smarthome}
+    return {"status": "ok"}
 
 if __name__ == "__main__":
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
