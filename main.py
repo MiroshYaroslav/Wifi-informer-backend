@@ -32,9 +32,8 @@ MQTT_TOPIC_STATE = "smart/dashboard/state"
 MQTT_TOPIC_TRIGGER = "smart/ha/trigger"
 MQTT_TOPIC_HEARTBEAT = "smart/dashboard/heartbeat"
 MQTT_TOPIC_COMMAND = "smart/dashboard/command"
-MQTT_TOPIC_TELEMETRY = "smart/dashboard/telemetry"  # Новий топік для читання
+MQTT_TOPIC_TELEMETRY = "smart/dashboard/telemetry"
 
-# --- МЕТРИКИ ДЛЯ PROMETHEUS ---
 esp_rssi_gauge = Gauge('esp_wifi_rssi_dbm', 'WiFi Signal Strength (dBm)')
 esp_uptime_gauge = Gauge('esp_uptime_seconds', 'ESP32 Uptime (seconds)')
 esp_heap_gauge = Gauge('esp_free_heap_bytes', 'ESP32 Free Heap Memory (bytes)')
@@ -82,7 +81,7 @@ def on_connect(_client, _userdata, _flags, _rc):
     logger.info("Connected to MQTT broker")
     _client.subscribe(MQTT_TOPIC_TRIGGER)
     _client.subscribe(MQTT_TOPIC_COMMAND)
-    _client.subscribe(MQTT_TOPIC_TELEMETRY)  # Підписуємося на телеметрію
+    _client.subscribe(MQTT_TOPIC_TELEMETRY)
     if main_loop is not None and main_loop.is_running():
         asyncio.run_coroutine_threadsafe(publish_state_async(), main_loop)
 
@@ -106,7 +105,6 @@ def on_message(_client, _userdata, msg):
             logger.error(f"Command parsing failed: {e}")
 
     elif msg.topic == MQTT_TOPIC_TELEMETRY:
-        # Ловимо телеметрію з екрана і записуємо в Prometheus
         try:
             payload = json.loads(msg.payload.decode())
             if "rssi" in payload:
@@ -225,7 +223,6 @@ async def get_dashboard_api():
     return await get_full_dashboard_state()
 
 
-# Роут для збору метрик
 @app.get("/metrics")
 async def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
